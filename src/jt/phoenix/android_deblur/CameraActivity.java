@@ -18,6 +18,10 @@ import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.hardware.Camera.PictureCallback;
 import android.os.Bundle;
 import android.os.Environment;
@@ -31,7 +35,7 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.ImageView;
 
-public class CameraActivity extends Activity implements SurfaceHolder.Callback
+public class CameraActivity extends Activity implements SurfaceHolder.Callback, SensorEventListener
 {
     public static String TAG = "jt";
     private SurfaceHolder surfaceHolder;
@@ -42,6 +46,15 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback
 //    private CamerTimerTask camerTimerTask;
     private Button buttonClick;
     private Boolean mPreviewRunning = false;
+    
+    //sensors
+    private SensorManager mSensorManager;
+    private Sensor mAccelerometer;
+    private Sensor mGyroscope;
+    private float[] mLastAccelerometer = new float[3];
+    private boolean mLastAccelerometerSet = false;
+    
+    private boolean isTakingPhoto = false;
 
     private Timer mTimer = new Timer(true);
 
@@ -80,6 +93,9 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback
                 
             }
         });
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
     }
     
     private File getOutputMediaFile(int type) {
@@ -115,6 +131,8 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback
         }  
     };  
     private void takePhoto() {
+        isTakingPhoto = true;
+        Log.e("jt","true");
         PictureCallback pictureCB = new PictureCallback() {
             public void onPictureTaken(byte[] data, Camera cam) {
               File picFile = getOutputMediaFile(MEDIA_TYPE_IMAGE);
@@ -136,8 +154,10 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback
               }
             }
           };
-      
+
       myCamera.takePicture(null, null, pictureCB);
+      Log.e("jt","false");
+      isTakingPhoto = false;
 //      if (mPreviewRunning) {
 //          myCamera.stopPreview();
 //      }
@@ -284,5 +304,46 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback
             }
         }
     }
+    
+    @Override
+    protected void onResume() {
+      super.onResume();
+      // register this class as a listener for the orientation and
+      // accelerometer sensors
+      mLastAccelerometerSet = false;
+      mSensorManager.registerListener(this, mAccelerometer, 5000);
+      mSensorManager.registerListener(this, mGyroscope, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+    
+    @Override
+    protected void onPause() {
+      // unregister listener
+      super.onPause();
+      mSensorManager.unregisterListener(this);
+    }
+    
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // TODO Auto-generated method stub
+        
+    }
 
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+
+        if (event.sensor == mAccelerometer && isTakingPhoto) {
+            System.arraycopy(event.values, 0, mLastAccelerometer, 0, event.values.length);
+            mLastAccelerometerSet = true;
+            setAccelerometer(event.values);
+        } 
+    }
+
+    private void setAccelerometer(float values[]) {
+        Log.e("jt", String.valueOf( (float) Math.round(100*values[0])/100  ));
+//        v0.setText(String.valueOf( (float) Math.round(100*values[0])/100  ));
+//        v1.setText(String.valueOf( (float) Math.round(100*values[1])/100  ));
+//        v2.setText(String.valueOf( (float) Math.round(100*values[2])/100  ));
+    }
 }
+
+
